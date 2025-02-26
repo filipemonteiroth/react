@@ -40,8 +40,13 @@ export function getToStringValue(value: mixed): ToStringValue {
         checkFormFieldValueStringCoercion(value);
       }
       return value;
+    case 'function':
+    case 'symbol':
+      // Explicitly return empty string for function and symbol values
+      // rather than stringifying them
+      return '';
     default:
-      // function, symbol are assigned as empty strings
+      // Any other types also get empty string
       return '';
   }
 }

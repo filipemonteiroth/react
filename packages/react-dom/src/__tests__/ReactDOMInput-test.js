@@ -2878,11 +2878,7 @@ describe('ReactDOMInput', () => {
       const node = container.firstChild;
 
       expect(node.value).toBe('');
-      if (disableInputAttributeSyncing) {
-        expect(node.hasAttribute('value')).toBe(false);
-      } else {
-        expect(node.getAttribute('value')).toBe('');
-      }
+      expect(node.getAttribute('value')).toBe(null);
     });
 
     it('treats updated Symbol value as an empty string', async () => {
@@ -2901,22 +2897,18 @@ describe('ReactDOMInput', () => {
       const node = container.firstChild;
 
       expect(node.value).toBe('');
-      if (disableInputAttributeSyncing) {
-        expect(node.hasAttribute('value')).toBe(false);
-      } else {
-        expect(node.getAttribute('value')).toBe('');
-      }
+      expect(node.getAttribute('value')).toBe(null);
     });
 
     it('treats initial Symbol defaultValue as an empty string', async () => {
       await act(() => {
         root.render(<input defaultValue={Symbol('foobar')} />);
       });
+      // TODO: we should warn here with assertConsoleErrorDev
       const node = container.firstChild;
 
       expect(node.value).toBe('');
-      expect(node.getAttribute('value')).toBe('');
-      // TODO: we should warn here.
+      expect(node.getAttribute('value')).toBe(null);
     });
 
     it('treats updated Symbol defaultValue as an empty string', async () => {
@@ -2926,6 +2918,7 @@ describe('ReactDOMInput', () => {
       await act(() => {
         root.render(<input defaultValue={Symbol('foobar')} />);
       });
+      // TODO: we should warn here with assertConsoleErrorDev
       const node = container.firstChild;
 
       if (disableInputAttributeSyncing) {
@@ -2933,8 +2926,7 @@ describe('ReactDOMInput', () => {
       } else {
         expect(node.value).toBe('foo');
       }
-      expect(node.getAttribute('value')).toBe('');
-      // TODO: we should warn here.
+      expect(node.getAttribute('value')).toBe(null);
     });
   });
 
@@ -2952,11 +2944,7 @@ describe('ReactDOMInput', () => {
       const node = container.firstChild;
 
       expect(node.value).toBe('');
-      if (disableInputAttributeSyncing) {
-        expect(node.hasAttribute('value')).toBe(false);
-      } else {
-        expect(node.getAttribute('value')).toBe('');
-      }
+      expect(node.getAttribute('value')).toBe(null);
     });
 
     it('treats updated function value as an empty string', async () => {
@@ -2975,22 +2963,18 @@ describe('ReactDOMInput', () => {
       const node = container.firstChild;
 
       expect(node.value).toBe('');
-      if (disableInputAttributeSyncing) {
-        expect(node.hasAttribute('value')).toBe(false);
-      } else {
-        expect(node.getAttribute('value')).toBe('');
-      }
+      expect(node.getAttribute('value')).toBe(null);
     });
 
     it('treats initial function defaultValue as an empty string', async () => {
       await act(() => {
         root.render(<input defaultValue={() => {}} />);
       });
+      // TODO: we should warn here with assertConsoleErrorDev
       const node = container.firstChild;
 
       expect(node.value).toBe('');
-      expect(node.getAttribute('value')).toBe('');
-      // TODO: we should warn here.
+      expect(node.getAttribute('value')).toBe(null);
     });
 
     it('treats updated function defaultValue as an empty string', async () => {
@@ -3000,16 +2984,15 @@ describe('ReactDOMInput', () => {
       await act(() => {
         root.render(<input defaultValue={() => {}} />);
       });
+      // TODO: we should warn here with assertConsoleErrorDev
       const node = container.firstChild;
 
       if (disableInputAttributeSyncing) {
         expect(node.value).toBe('');
-        expect(node.getAttribute('value')).toBe('');
       } else {
         expect(node.value).toBe('foo');
-        expect(node.getAttribute('value')).toBe('');
       }
-      // TODO: we should warn here.
+      expect(node.getAttribute('value')).toBe(null);
     });
   });
 
@@ -3087,5 +3070,63 @@ describe('ReactDOMInput', () => {
 
     expect(log).toEqual(['']);
     expect(node.value).toBe('a');
+  });
+  
+  it('should ignore Symbol values for input value', async () => {
+    const testSymbol = Symbol('test');
+    await act(() => {
+      root.render(<input type="text" value={testSymbol} onChange={emptyFunction} />);
+    });
+    assertConsoleErrorDev([
+      'Invalid value for prop `value` on <input> tag. Either remove it from the element, or pass a string or number value to keep it in the DOM. For details, see https://react.dev/link/attribute-behavior',
+    ]);
+    const node = container.firstChild;
+    
+    // Symbol values should be ignored, treating input as uncontrolled with empty string
+    expect(node.value).toBe('');
+    expect(node.getAttribute('value')).toBe(null);
+  });
+  
+  it('should ignore Function values for input value', async () => {
+    const testFunction = () => {};
+    await act(() => {
+      root.render(<input type="text" value={testFunction} onChange={emptyFunction} />);
+    });
+    assertConsoleErrorDev([
+      'Invalid value for prop `value` on <input> tag. Either remove it from the element, or pass a string or number value to keep it in the DOM. For details, see https://react.dev/link/attribute-behavior',
+    ]);
+    const node = container.firstChild;
+    
+    // Function values should be ignored, treating input as having empty string value
+    expect(node.value).toBe('');
+    expect(node.getAttribute('value')).toBe(null);
+  });
+  
+  it('should ignore Symbol values for checked attribute', async () => {
+    const testSymbol = Symbol('test');
+    await act(() => {
+      root.render(<input type="checkbox" checked={testSymbol} onChange={emptyFunction} />);
+    });
+    assertConsoleErrorDev([
+      'Invalid value for prop `checked` on <input> tag. Either remove it from the element, or pass a string or number value to keep it in the DOM. For details, see https://react.dev/link/attribute-behavior',
+    ]);
+    const node = container.firstChild;
+    
+    // Symbol values for checked should be ignored and not cause errors
+    expect(node.checked).toBe(false);
+  });
+  
+  it('should ignore Function values for checked attribute', async () => {
+    const testFunction = () => {};
+    await act(() => {
+      root.render(<input type="checkbox" checked={testFunction} onChange={emptyFunction} />);
+    });
+    assertConsoleErrorDev([
+      'Invalid value for prop `checked` on <input> tag. Either remove it from the element, or pass a string or number value to keep it in the DOM. For details, see https://react.dev/link/attribute-behavior',
+    ]);
+    const node = container.firstChild;
+    
+    // Function values for checked should be ignored and not cause errors
+    expect(node.checked).toBe(false);
   });
 });

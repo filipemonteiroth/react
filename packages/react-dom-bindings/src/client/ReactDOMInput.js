@@ -115,7 +115,12 @@ export function updateInput(
   }
 
   if (value != null) {
-    if (type === 'number') {
+    if (typeof value === 'function' || typeof value === 'symbol') {
+      // For function or symbol values, remove the attribute completely
+      node.removeAttribute('value');
+      // Still set the value property to empty string to match browser behavior
+      node.value = '';
+    } else if (type === 'number') {
       if (
         // $FlowFixMe[incompatible-type]
         (value === 0 && node.value === '') ||
@@ -150,9 +155,17 @@ export function updateInput(
     //  2. The defaultValue React property
     //  3. Otherwise there should be no change
     if (value != null) {
-      setDefaultValue(node, type, getToStringValue(value));
+      if (typeof value === 'function' || typeof value === 'symbol') {
+        node.removeAttribute('value');
+      } else {
+        setDefaultValue(node, type, getToStringValue(value));
+      }
     } else if (defaultValue != null) {
-      setDefaultValue(node, type, getToStringValue(defaultValue));
+      if (typeof defaultValue === 'function' || typeof defaultValue === 'symbol') {
+        node.removeAttribute('value');
+      } else {
+        setDefaultValue(node, type, getToStringValue(defaultValue));
+      }
     } else if (lastDefaultValue != null) {
       node.removeAttribute('value');
     }
@@ -180,8 +193,14 @@ export function updateInput(
     // value tracking with radio buttons
     // TODO: Should really update input value tracking for the whole radio
     // button group in an effect or something (similar to #27024)
-    node.checked =
-      checked && typeof checked !== 'function' && typeof checked !== 'symbol';
+    // Ignore Symbol and Function values for checked
+    if (typeof checked === 'function' || typeof checked === 'symbol') {
+      // Don't set checked for function or symbol values
+      // Remove the attribute to ensure consistent behavior with how we handle value
+      node.removeAttribute('checked');
+    } else {
+      node.checked = !!checked;
+    }
   }
 
   if (
@@ -234,8 +253,14 @@ export function initInput(
 
     const defaultValueStr =
       defaultValue != null ? toString(getToStringValue(defaultValue)) : '';
+    // Handle Symbol and Function values specially
+    const valueIsSymbolOrFunction = value != null && (typeof value === 'symbol' || typeof value === 'function');
+    const defaultValueIsSymbolOrFunction = defaultValue != null && (typeof defaultValue === 'symbol' || typeof defaultValue === 'function');
+    
     const initialValue =
-      value != null ? toString(getToStringValue(value)) : defaultValueStr;
+      value != null ? 
+        (valueIsSymbolOrFunction ? '' : toString(getToStringValue(value))) : 
+        (defaultValueIsSymbolOrFunction ? '' : defaultValueStr);
 
     // Do not assign value if it is already set. This prevents user text input
     // from being lost during SSR hydration.
@@ -244,16 +269,22 @@ export function initInput(
         // When not syncing the value attribute, the value property points
         // directly to the React prop. Only assign it if it exists.
         if (value != null) {
-          // Always assign on buttons so that it is possible to assign an
-          // empty string to clear button text.
-          //
-          // Otherwise, do not re-assign the value property if is empty. This
-          // potentially avoids a DOM write and prevents Firefox (~60.0.1) from
-          // prematurely marking required inputs as invalid. Equality is compared
-          // to the current value in case the browser provided value is not an
-          // empty string.
-          if (isButton || toString(getToStringValue(value)) !== node.value) {
-            node.value = toString(getToStringValue(value));
+          if (valueIsSymbolOrFunction) {
+            // For symbol or function values, set to empty string and remove attribute
+            node.value = '';
+            node.removeAttribute('value');
+          } else {
+            // Always assign on buttons so that it is possible to assign an
+            // empty string to clear button text.
+            //
+            // Otherwise, do not re-assign the value property if is empty. This
+            // potentially avoids a DOM write and prevents Firefox (~60.0.1) from
+            // prematurely marking required inputs as invalid. Equality is compared
+            // to the current value in case the browser provided value is not an
+            // empty string.
+            if (isButton || toString(getToStringValue(value)) !== node.value) {
+              node.value = toString(getToStringValue(value));
+            }
           }
         }
       } else {
@@ -263,7 +294,11 @@ export function initInput(
         //   1. The value React property when present
         //   2. The defaultValue React property when present
         //   3. An empty string
-        if (initialValue !== node.value) {
+        if (valueIsSymbolOrFunction || defaultValueIsSymbolOrFunction) {
+          // For symbol or function values, set to empty string and remove attribute
+          node.value = '';
+          node.removeAttribute('value');
+        } else if (initialValue !== node.value) {
           node.value = initialValue;
         }
       }
@@ -273,13 +308,21 @@ export function initInput(
       // When not syncing the value attribute, assign the value attribute
       // directly from the defaultValue React property (when present)
       if (defaultValue != null) {
-        node.defaultValue = defaultValueStr;
+        if (defaultValueIsSymbolOrFunction) {
+          node.removeAttribute('value');
+        } else {
+          node.defaultValue = defaultValueStr;
+        }
       }
     } else {
       // Otherwise, the value attribute is synchronized to the property,
       // so we assign defaultValue to the same thing as the value property
       // assignment step above.
-      node.defaultValue = initialValue;
+      if (valueIsSymbolOrFunction || defaultValueIsSymbolOrFunction) {
+        node.removeAttribute('value');
+      } else {
+        node.defaultValue = initialValue;
+      }
     }
   }
 
@@ -431,6 +474,12 @@ export function setDefaultValue(
   type: ?string,
   value: ToStringValue,
 ) {
+  if (typeof value === 'function' || typeof value === 'symbol') {
+    // For function or symbol values, remove the attribute completely
+    node.removeAttribute('value');
+    return;
+  }
+  
   if (
     // Focused number inputs synchronize on blur. See ChangeEventPlugin.js
     type !== 'number' ||
